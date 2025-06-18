@@ -51,7 +51,7 @@ const connectionConfiguration = {
   flags : '-FOUND_ROWS'
 };
 
-const additionalOptions = configSql.get('mysqlExtraOptions');
+const additionalOptions = config.util.cloneDeep(configSql.get('mysqlExtraOptions'));
 const configuration = Object.assign({}, connectionConfiguration, additionalOptions);
 let queryTimeout = undefined;
 if (configuration.queryTimeout) {

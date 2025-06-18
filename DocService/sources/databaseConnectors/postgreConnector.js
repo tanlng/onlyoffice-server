@@ -40,7 +40,7 @@ const operationContext = require('../../../Common/sources/operationContext');
 const config = require('config');
 var configSql = config.get('services.CoAuthoring.sql');
 const cfgTableResult = config.get('services.CoAuthoring.sql.tableResult');
-var pgPoolExtraOptions = configSql.get('pgPoolExtraOptions');
+var pgPoolExtraOptions = config.util.cloneDeep(configSql.get('pgPoolExtraOptions'));
 const cfgEditor = config.get('services.CoAuthoring.editor');
 
 let connectionConfig = {

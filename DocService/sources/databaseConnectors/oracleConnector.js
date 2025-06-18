@@ -49,7 +49,7 @@ const connectionConfiguration = {
   poolMin: 0,
   poolMax: configSql.get('connectionlimit')
 };
-const additionalOptions = configSql.get('oracleExtraOptions');
+const additionalOptions = config.util.cloneDeep(configSql.get('oracleExtraOptions'));
 const configuration = Object.assign({}, connectionConfiguration, additionalOptions);
 const forceClosingCountdownMs = 2000;
 let pool = null;

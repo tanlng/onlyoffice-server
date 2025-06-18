@@ -43,7 +43,7 @@ const cfgDbUser = configSql.get('dbUser');
 const cfgDbPass = configSql.get('dbPass');
 const cfgConnectionLimit = configSql.get('connectionlimit');
 const cfgTableResult = configSql.get('tableResult');
-const cfgDamengExtraOptions = configSql.get('damengExtraOptions');
+const cfgDamengExtraOptions = config.util.cloneDeep(configSql.get('damengExtraOptions'));
 const forceClosingCountdownMs = 2000;
 
 // dmdb driver separates PoolAttributes and ConnectionAttributes.

@@ -53,7 +53,7 @@ const connectionConfiguration = {
     min: 0
   }
 };
-const additionalOptions = configSql.get('msSqlExtraOptions');
+const additionalOptions = config.util.cloneDeep(configSql.get('msSqlExtraOptions'));
 const configuration = utils.deepMergeObjects({}, connectionConfiguration, additionalOptions);
 
 const placeholderPrefix = 'ph_';

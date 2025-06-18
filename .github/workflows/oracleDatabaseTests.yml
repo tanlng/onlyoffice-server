@@ -14,7 +14,7 @@ jobs:
 
     steps:
       - name: Run Oracle DB docker container
-        run: docker run --name oracle -p 8080:1521 -p 8081:5500 -e ORACLE_PASSWORD=admin -e APP_USER=onlyoffice -e APP_USER_PASSWORD=onlyoffice -d gvenzl/oracle-xe:21-slim
+        run: docker run --name oracle -p 8080:1521 -p 8081:5500 -e ORACLE_PASSWORD=admin -e ORACLE_DATABASE=onlyoffice -e APP_USER=onlyoffice -e APP_USER_PASSWORD=onlyoffice -d gvenzl/oracle-xe:21-slim
 
       - name: Check out repository code
         uses: actions/checkout@v3
@@ -37,7 +37,7 @@ jobs:
 
       - name: Creating service DB configuration
         run: |
-          echo '{"services": {"CoAuthoring": {"sql": {"type": "oracle", "dbHost": "127.0.0.1", "dbPort": "8080", "dbUser": "onlyoffice", "dbPass": "onlyoffice", "dbName": "xepdb1"}}}}' >> Common/config/local.json
+          echo '{"services": {"CoAuthoring": {"sql": {"type": "oracle", "dbHost": "127.0.0.1", "dbPort": "8080", "dbUser": "onlyoffice", "dbPass": "onlyoffice", "dbName": "onlyoffice"}}}}' >> Common/config/local.json
 
       - name: Await database service to finish startup
         run: sleep 15
@@ -45,7 +45,7 @@ jobs:
       - name: Creating schema
         run: |
           docker cp ./schema/oracle/createdb.sql oracle:/
-          docker exec oracle sqlplus -s onlyoffice/onlyoffice@//localhost/xepdb1 @/createdb.sql
+          docker exec oracle sqlplus -s onlyoffice/onlyoffice@//localhost/onlyoffice @/createdb.sql
 
       - name: Run Jest
         run: npm run "integration database tests"

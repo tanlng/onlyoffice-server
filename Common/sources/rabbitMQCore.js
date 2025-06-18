@@ -37,7 +37,7 @@ var logger = require('./logger');
 const operationContext = require('./operationContext');
 
 var cfgRabbitUrl = config.get('rabbitmq.url');
-var cfgRabbitSocketOptions = config.get('rabbitmq.socketOptions');
+var cfgRabbitSocketOptions = config.util.cloneDeep(config.get('rabbitmq.socketOptions'));
 
 var RECONNECT_TIMEOUT = 1000;
 

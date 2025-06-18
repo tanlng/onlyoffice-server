@@ -36,7 +36,7 @@ var container = require('rhea');
 var logger = require('./logger');
 const operationContext = require('./operationContext');
 
-const cfgRabbitSocketOptions = config.get('activemq.connectOptions');
+const cfgRabbitSocketOptions = config.util.cloneDeep(config.get('activemq.connectOptions'));
 
 var RECONNECT_TIMEOUT = 1000;
 
