@@ -42,6 +42,11 @@ const cfgTableResult = configSql.get('tableResult');
 const cfgTableChanges = configSql.get('tableChanges');
 const cfgMaxPacketSize = configSql.get('max_allowed_packet');
 
+// Limit rows per executeMany call to avoid large internal batches causing server instability
+// Especially important for 21c 21.3 with NCLOB columns and batched inserts
+// Higher to reduce round-trips while still bounded by cfgMaxPacketSize
+const MAX_EXECUTE_MANY_ROWS = 2000;
+
 const connectionConfiguration = {
   user: configSql.get('dbUser'),
   password: configSql.get('dbPass'),
@@ -130,7 +135,20 @@ async function executeQuery(ctx, sqlCommand, values = [], noModifyRes = false, n
   }
 }
 
-async function executeBunch(ctx, sqlCommand, values = [], noLog = false) {
+/**
+ * Execute a batched DML statement using executeMany with optional bind options.
+ * Notes:
+ * - Accepts array-of-arrays for positional binds (recommended for :0..:N placeholders)
+ * - Options can include bindDefs, batchErrors, autoCommit, etc.
+ * - Logs batchErrors summary when present to aid debugging while keeping normal return shape
+ * @param {object} ctx - request context with logger
+ * @param {string} sqlCommand - SQL text with positional bind placeholders
+ * @param {Array<Array<any>>|Array<object>} values - rows to bind
+ * @param {object} [options] - executeMany options (e.g., { bindDefs: [...], batchErrors: true })
+ * @param {boolean} [noLog=false] - disable error logging
+ * @returns {{affectedRows:number}} affected rows count aggregate
+ */
+async function executeBunch(ctx, sqlCommand, values = [], options, noLog = false) {
   let connection = null;
   try {
     if (!pool) {
@@ -138,18 +156,37 @@ async function executeBunch(ctx, sqlCommand, values = [], noLog = false) {
     }
 
     connection = await pool.getConnection();
-    
-    const result = await connection.executeMany(sqlCommand, values);
+
+    const result = await connection.executeMany(sqlCommand, values, options);
+
+    // Log batch errors if requested, without changing the public return shape
+    if (options?.batchErrors && Array.isArray(result?.batchErrors) && result.batchErrors.length && !noLog) {
+      const allDup = result.batchErrors.every(e => e?.errorNum === 1); // ORA-00001
+      const logMessage = `executeMany() batchErrors for: ${sqlCommand} -> count=${result.batchErrors.length}${allDup ? ' (duplicates)' : ''}`;
+      if (allDup) {
+        ctx.logger.debug(logMessage);
+      } else {
+        ctx.logger.error(logMessage);
+      }
+    }
 
     return { affectedRows: result?.rowsAffected ?? 0 };
   } catch (error) {
     if (!noLog) {
-      ctx.logger.error(`sqlQuery() error while executing query: ${sqlCommand}\n${error.stack}`);
+      ctx.logger.error(`executeBunch() error while executing query: ${sqlCommand}\n${error.stack}`);
     }
 
     throw error;
   } finally {
-    connection?.close();
+    if (connection) {
+      try {
+        await connection.close();
+      } catch (error) {
+        if (!noLog) {
+          ctx.logger.error(`connection.close() error while executing batched query: ${sqlCommand}\n${error.stack}`);
+        }
+      }
+    }
   }
 }
 
@@ -287,7 +324,20 @@ function insertChanges(ctx, tableChanges, startIndex, objChanges, docId, index, 
   );
 }
 
-async function insertChangesAsync(ctx, tableChanges, startIndex, objChanges, docId, index, user) {
+/**
+ * Insert a sequence of change records into the doc_changes table using executeMany.
+ * Removes APPEND_VALUES hint, adds explicit bindDefs, and chunks batches to reduce risk of ORA-03106.
+ * @param {object} ctx - request context
+ * @param {string} tableChanges - table name
+ * @param {number} startIndex - start offset in objChanges
+ * @param {Array<{change:string,time:Date|number|string}>} objChanges - changes payload
+ * @param {string} docId - document id
+ * @param {number} index - starting change_id value
+ * @param {{id:string,idOriginal:string,username:string}} user - user info
+ * @param {boolean} [allowParallel=true] - allow one-level parallel execution for next chunk
+ * @returns {Promise<{affectedRows:number}>}
+ */
+async function insertChangesAsync(ctx, tableChanges, startIndex, objChanges, docId, index, user, allowParallel = true) {
   if (startIndex === objChanges.length) {
     return { affectedRows: 0 };
   }
@@ -295,7 +345,7 @@ async function insertChangesAsync(ctx, tableChanges, startIndex, objChanges, doc
   const parametersCount = 8;
   const maxPlaceholderLength = ':99'.length;
   // (parametersCount - 1) - separator symbols length.
-  const maxInsertStatementLength = `INSERT /*+ APPEND_VALUES*/INTO ${tableChanges} VALUES()`.length + maxPlaceholderLength * parametersCount + (parametersCount - 1);
+  const maxInsertStatementLength = `INSERT INTO ${tableChanges} VALUES()`.length + maxPlaceholderLength * parametersCount + (parametersCount - 1);
   let packetCapacityReached = false;
 
   const values = [];
@@ -308,10 +358,15 @@ async function insertChangesAsync(ctx, tableChanges, startIndex, objChanges, doc
     const lengthUtf8Row = maxInsertStatementLength + indexBytes + timeBytes
       + 4 * (ctx.tenant.length + docId.length + user.id.length + user.idOriginal.length + user.username.length + objChanges[currentIndex].change.length);
 
-    if (lengthUtf8Row + lengthUtf8Current >= cfgMaxPacketSize && currentIndex > startIndex) {
+    // Chunk by packet size and by max rows per batch
+    if ((lengthUtf8Row + lengthUtf8Current >= cfgMaxPacketSize || (values.length >= MAX_EXECUTE_MANY_ROWS)) && currentIndex > startIndex) {
       packetCapacityReached = true;
       break;
     }
+
+    // Ensure TIMESTAMP bind is a valid JS Date
+    const _t = objChanges[currentIndex].time;
+    const changeTime = _t instanceof Date ? _t : new Date(_t);
 
     const parameters = [
       ctx.tenant,
@@ -321,28 +376,56 @@ async function insertChangesAsync(ctx, tableChanges, startIndex, objChanges, doc
       user.idOriginal,
       user.username,
       objChanges[currentIndex].change,
-      objChanges[currentIndex].time
+      changeTime
     ];
 
-    const rowValues = { ...parameters };
-
-    values.push(rowValues);
+    // Use positional binding (array-of-arrays) for :0..:7 placeholders
+    values.push(parameters);
     lengthUtf8Current += lengthUtf8Row;
   }
 
   const placeholder = [];
-  for (let i = 0; i < parametersCount; i++) {
+  for (let i = 1; i <= parametersCount; i++) {
     placeholder.push(`:${i}`);
   }
 
-  const sqlInsert = `INSERT /*+ APPEND_VALUES*/INTO ${tableChanges} VALUES(${placeholder.join(',')})`;
-  const result = await executeBunch(ctx, sqlInsert, values);
+  // Use IGNORE_ROW_ON_DUPKEY_INDEX to avoid duplicate-key errors on retries and speed up inserts
+  const sqlInsert = `INSERT /*+ IGNORE_ROW_ON_DUPKEY_INDEX(${tableChanges} DOC_CHANGES_UNIQUE) */ INTO ${tableChanges} VALUES(${placeholder.join(',')})`;
+
+  // Explicit bind definitions to avoid thin-driver type inference pitfalls on NVARCHAR2/NCLOB/TIMESTAMP
+  const bindDefs = [
+    { type: oracledb.DB_TYPE_NVARCHAR, maxSize: 255 },  // tenant NVARCHAR2(255)
+    { type: oracledb.DB_TYPE_NVARCHAR, maxSize: 255 },  // id NVARCHAR2(255)
+    { type: oracledb.DB_TYPE_NUMBER },    // change_id NUMBER
+    { type: oracledb.DB_TYPE_NVARCHAR, maxSize: 255 },  // user_id NVARCHAR2(255)
+    { type: oracledb.DB_TYPE_NVARCHAR, maxSize: 255 },  // user_id_original NVARCHAR2(255)
+    { type: oracledb.DB_TYPE_NVARCHAR, maxSize: 255 },  // user_name NVARCHAR2(255)
+    { type: oracledb.DB_TYPE_NCLOB },     // change_data NCLOB
+    { type: oracledb.DB_TYPE_TIMESTAMP }  // change_date TIMESTAMP
+  ];
+
+  // With IGNORE_ROW_ON_DUPKEY_INDEX, duplicates are skipped server-side; disable batchErrors to reduce overhead
+  const executeOptions = { bindDefs, batchErrors: false, autoCommit: true };
+  
+  // Execute current batch and optionally process next chunk concurrently if allowed
+  const p1 = executeBunch(ctx, sqlInsert, values, executeOptions);
 
   if (packetCapacityReached) {
-    const recursiveValue = await insertChangesAsync(ctx, tableChanges, currentIndex, objChanges, docId, index, user);
-    result.affectedRows += recursiveValue.affectedRows;
+    if (allowParallel) {
+      // Start processing the remaining chunks concurrently (single-level parallelism)
+      const p2 = insertChangesAsync(ctx, tableChanges, currentIndex, objChanges, docId, index, user, false);
+      const [r1, r2] = await Promise.all([p1, p2]);
+      r1.affectedRows += r2.affectedRows;
+      return r1;
+    }
+    // Parallelism not allowed: finish this batch, then continue sequentially
+    const r1 = await p1;
+    const r2 = await insertChangesAsync(ctx, tableChanges, currentIndex, objChanges, docId, index, user, false);
+    r1.affectedRows += r2.affectedRows;
+    return r1;
   }
 
+  const result = await p1;
   return result;
 }
 
