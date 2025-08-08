@@ -352,6 +352,8 @@ async function insertChangesAsync(ctx, tableChanges, startIndex, objChanges, doc
   const indexBytes = 4;
   const timeBytes = 8;
   let lengthUtf8Current = 0;
+  // Track the longest change_data length in this batch to choose efficient bind type
+  let maxChangeLen = 0;
   let currentIndex = startIndex;
   for (; currentIndex < objChanges.length; ++currentIndex, ++index) {
     // 4 bytes is maximum for utf8 symbol.
@@ -367,6 +369,8 @@ async function insertChangesAsync(ctx, tableChanges, startIndex, objChanges, doc
     // Ensure TIMESTAMP bind is a valid JS Date
     const _t = objChanges[currentIndex].time;
     const changeTime = _t instanceof Date ? _t : new Date(_t);
+    const changeStr = objChanges[currentIndex].change;
+    if (changeStr.length > maxChangeLen) maxChangeLen = changeStr.length;
 
     const parameters = [
       ctx.tenant,
@@ -375,7 +379,7 @@ async function insertChangesAsync(ctx, tableChanges, startIndex, objChanges, doc
       user.id,
       user.idOriginal,
       user.username,
-      objChanges[currentIndex].change,
+      changeStr,
       changeTime
     ];
 
@@ -390,7 +394,7 @@ async function insertChangesAsync(ctx, tableChanges, startIndex, objChanges, doc
   }
 
   // Use IGNORE_ROW_ON_DUPKEY_INDEX to avoid duplicate-key errors on retries and speed up inserts
-  const sqlInsert = `INSERT /*+ IGNORE_ROW_ON_DUPKEY_INDEX(${tableChanges} DOC_CHANGES_UNIQUE) */ INTO ${tableChanges} VALUES(${placeholder.join(',')})`;
+  const sqlInsert = `INSERT /*+ IGNORE_ROW_ON_DUPKEY_INDEX(${tableChanges}, DOC_CHANGES_UNIQUE) */ INTO ${tableChanges} VALUES(${placeholder.join(',')})`;
 
   // Explicit bind definitions to avoid thin-driver type inference pitfalls on NVARCHAR2/NCLOB/TIMESTAMP
   const bindDefs = [
@@ -400,7 +404,10 @@ async function insertChangesAsync(ctx, tableChanges, startIndex, objChanges, doc
     { type: oracledb.DB_TYPE_NVARCHAR, maxSize: 255 },  // user_id NVARCHAR2(255)
     { type: oracledb.DB_TYPE_NVARCHAR, maxSize: 255 },  // user_id_original NVARCHAR2(255)
     { type: oracledb.DB_TYPE_NVARCHAR, maxSize: 255 },  // user_name NVARCHAR2(255)
-    { type: oracledb.DB_TYPE_NCLOB },     // change_data NCLOB
+    // Prefer NVARCHAR2 for small payloads to avoid expensive NCLOB handling; fallback to NCLOB when needed
+    (maxChangeLen <= 2000
+      ? { type: oracledb.DB_TYPE_NVARCHAR, maxSize: Math.max(16, Math.min(maxChangeLen || 16, 2000)) }
+      : { type: oracledb.DB_TYPE_NCLOB }), // change_data
     { type: oracledb.DB_TYPE_TIMESTAMP }  // change_date TIMESTAMP
   ];
 
