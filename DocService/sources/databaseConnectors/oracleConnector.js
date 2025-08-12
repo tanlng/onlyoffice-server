@@ -36,6 +36,7 @@ const oracledb = require('oracledb');
 const config = require('config');
 const connectorUtilities = require('./connectorUtilities');
 const utils = require('../../../Common/sources/utils');
+const operationContext = require('../../../Common/sources/operationContext');
 
 const configSql = config.get('services.CoAuthoring.sql');
 const cfgTableResult = configSql.get('tableResult');
@@ -55,6 +56,18 @@ const connectionConfiguration = {
   poolMax: configSql.get('connectionlimit')
 };
 const additionalOptions = config.util.cloneDeep(configSql.get('oracleExtraOptions'));
+// Initialize thick mode
+if (additionalOptions?.thin === false) {
+  try {
+    oracledb.initOracleClient(additionalOptions?.libDir ? { libDir: additionalOptions.libDir } : {});
+  } catch (err) {
+    operationContext.global.logger.error('Failed to initialize thick Oracle client:', err);
+  }
+}
+// Remove Oracle client options before creating connection config
+delete additionalOptions.thin;
+delete additionalOptions.libDir;
+
 const configuration = Object.assign({}, connectionConfiguration, additionalOptions);
 const forceClosingCountdownMs = 2000;
 let pool = null;
