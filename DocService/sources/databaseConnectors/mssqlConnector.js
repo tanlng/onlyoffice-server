@@ -199,8 +199,8 @@ function concatParams(...parameters) {
 }
 
 function getTableColumns(ctx, tableName) {
-  let values = [];
-  let sqlParam = addSqlParameter(tableName, values);
+  const values = [];
+  const sqlParam = addSqlParameter(tableName, values);
   const sqlCommand = `SELECT column_name FROM information_schema.COLUMNS WHERE TABLE_NAME = ${sqlParam} AND TABLE_SCHEMA = 'dbo';`;
   return executeQuery(ctx, sqlCommand, values);
 }
@@ -277,7 +277,7 @@ async function upsert(ctx, task) {
 
   updateColumns += ', target.user_index = target.user_index + 1';
 
-  let sqlMerge = `MERGE INTO ${cfgTableResult} AS target `
+  const sqlMerge = `MERGE INTO ${cfgTableResult} AS target `
     + `USING(VALUES(${insertValues})) AS source(${sourceColumns}) `
     + `ON(${condition}) `
     + `WHEN MATCHED THEN UPDATE SET ${updateColumns} `

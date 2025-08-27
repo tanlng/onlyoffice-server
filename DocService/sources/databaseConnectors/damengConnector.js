@@ -60,20 +60,20 @@ const poolConfig = {
 };
 
 function readLob(lob) {
-  return new Promise(function(resolve, reject) {
+  return new Promise((resolve, reject) => {
     let blobData = Buffer.alloc(0);
     let totalLength = 0;
 
-    lob.on('data', function(chunk) {
+    lob.on('data', (chunk) => {
       totalLength += chunk.length;
       blobData = Buffer.concat([blobData, chunk], totalLength);
     });
 
-    lob.on('error', function(err) {
+    lob.on('error', (err) => {
       reject(err);
     });
 
-    lob.on('end', function() {
+    lob.on('end', () => {
       resolve(blobData);
     });
   });
@@ -86,7 +86,7 @@ async function formatResult(result) {
       const row = result.rows[i];
       const out = {};
       for (let j = 0; j < result.metaData.length; ++j) {
-        let columnName = result.metaData[j].name;
+        const columnName = result.metaData[j].name;
         if (row[j]?.on) {
           const buf = await readLob(row[j]);
           out[columnName] = buf.toString('utf8');
@@ -147,7 +147,7 @@ function closePool() {
 }
 
 function addSqlParameter(val, values) {
-  values.push({ val: val });
+  values.push({ val });
   return `:${values.length}`;
 }
 
@@ -156,20 +156,20 @@ function concatParams(val1, val2) {
 }
 
 async function getTableColumns(ctx, tableName) {
-  let values = [];
-  let sqlParam = addSqlParameter(tableName.toUpperCase(), values);
+  const values = [];
+  const sqlParam = addSqlParameter(tableName.toUpperCase(), values);
   const result = await executeQuery(ctx, `SELECT column_name FROM DBA_TAB_COLUMNS WHERE table_name = ${sqlParam};`, values);
   return result.map(row => { return { column_name: row.column_name.toLowerCase() }});
 }
 
 async function upsert(ctx, task) {
   task.completeDefaults();
-  let dateNow = new Date();
-  let values = [];
+  const dateNow = new Date();
+  const values = [];
 
   let cbInsert = task.callback;
   if (task.callback) {
-    let userCallback = new connectorUtilities.UserCallback();
+    const userCallback = new connectorUtilities.UserCallback();
     userCallback.fromValues(task.userIndex, task.callback);
     cbInsert = userCallback.toSQLInsert();
   }
@@ -191,12 +191,12 @@ async function upsert(ctx, task) {
   sqlCommand += `WHEN MATCHED THEN UPDATE SET last_open_date = ${p9}`;
 
   if (task.callback) {
-    let p10 = addSqlParameter(JSON.stringify(task.callback), values);
+    const p10 = addSqlParameter(JSON.stringify(task.callback), values);
     sqlCommand += `, callback = CONCAT(callback , '${connectorUtilities.UserCallback.prototype.delimiter}{"userIndex":' , (user_index + 1) , ',"callback":', ${p10}, '}')`;
   }
 
   if (task.baseurl) {
-    let p11 = addSqlParameter(task.baseurl, values);
+    const p11 = addSqlParameter(task.baseurl, values);
     sqlCommand += `, baseurl = ${p11}`;
   }
 

@@ -158,12 +158,12 @@ async function upsert(ctx, task) {
 
   let updateStatement = `last_open_date = ${addSqlParameter(dateNow, values)}`;
   if (task.callback) {
-    let callbackPlaceholder = addSqlParameter(JSON.stringify(task.callback), values);
+    const callbackPlaceholder = addSqlParameter(JSON.stringify(task.callback), values);
     updateStatement += `, callback = CONCAT(callback , '${connectorUtilities.UserCallback.prototype.delimiter}{"userIndex":' , (user_index + 1) , ',"callback":', ${callbackPlaceholder}, '}')`;
   }
 
   if (task.baseurl) {
-    let baseUrlPlaceholder = addSqlParameter(task.baseurl, values);
+    const baseUrlPlaceholder = addSqlParameter(task.baseurl, values);
     updateStatement += `, baseurl = ${baseUrlPlaceholder}`;
   }
 

@@ -171,8 +171,8 @@ function concatParams(firstParameter, secondParameter) {
 }
 
 function getTableColumns(ctx, tableName) {
-  let values = [];
-  let sqlParam = addSqlParameter(tableName.toUpperCase(), values);
+  const values = [];
+  const sqlParam = addSqlParameter(tableName.toUpperCase(), values);
   return executeQuery(ctx, `SELECT LOWER(column_name) AS column_name FROM user_tab_columns WHERE table_name = ${sqlParam}`, values);
 }
 
@@ -259,7 +259,7 @@ async function upsert(ctx, task) {
   ];
 
   const returned = addSqlParameter({ type: oracledb.NUMBER, dir: oracledb.BIND_OUT }, insertValues);
-  let sqlInsertTry = `INSERT INTO ${cfgTableResult} (tenant, id, status, status_info, last_open_date, user_index, change_id, callback, baseurl) `
+  const sqlInsertTry = `INSERT INTO ${cfgTableResult} (tenant, id, status, status_info, last_open_date, user_index, change_id, callback, baseurl) `
     + `VALUES(${insertValuesPlaceholder.join(', ')}) RETURNING user_index INTO ${returned}`;
 
   try {

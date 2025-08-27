@@ -43,7 +43,7 @@ const cfgTableResult = config.get('services.CoAuthoring.sql.tableResult');
 var pgPoolExtraOptions = config.util.cloneDeep(configSql.get('pgPoolExtraOptions'));
 const cfgEditor = config.get('services.CoAuthoring.editor');
 
-let connectionConfig = {
+const connectionConfig = {
   host: configSql.get('dbHost'),
   port: parseInt(configSql.get('dbPort')),
   user: configSql.get('dbUser'),
@@ -63,10 +63,10 @@ pool.on('error', (err, client) => {
 })
 //todo datetime timezone
 pg.defaults.parseInputDatesAsUTC = true;
-types.setTypeParser(1114, function(stringValue) {
+types.setTypeParser(1114, (stringValue) => {
   return new Date(stringValue + '+0000');
 });
-types.setTypeParser(1184, function(stringValue) {
+types.setTypeParser(1184, (stringValue) => {
   return new Date(stringValue + '+0000');
 });
 
@@ -116,35 +116,35 @@ var isSupportOnConflict = true;
 
 function getUpsertString(task, values) {
   task.completeDefaults();
-  let dateNow = new Date();
+  const dateNow = new Date();
   let cbInsert = task.callback;
   if (isSupportOnConflict && task.callback) {
-    let userCallback = new connectorUtilities.UserCallback();
+    const userCallback = new connectorUtilities.UserCallback();
     userCallback.fromValues(task.userIndex, task.callback);
     cbInsert = userCallback.toSQLInsert();
   }
-  let p0 = addSqlParameter(task.tenant, values);
-  let p1 = addSqlParameter(task.key, values);
-  let p2 = addSqlParameter(task.status, values);
-  let p3 = addSqlParameter(task.statusInfo, values);
-  let p4 = addSqlParameter(dateNow, values);
-  let p5 = addSqlParameter(task.userIndex, values);
-  let p6 = addSqlParameter(task.changeId, values);
-  let p7 = addSqlParameter(cbInsert, values);
-  let p8 = addSqlParameter(task.baseurl, values);
+  const p0 = addSqlParameter(task.tenant, values);
+  const p1 = addSqlParameter(task.key, values);
+  const p2 = addSqlParameter(task.status, values);
+  const p3 = addSqlParameter(task.statusInfo, values);
+  const p4 = addSqlParameter(dateNow, values);
+  const p5 = addSqlParameter(task.userIndex, values);
+  const p6 = addSqlParameter(task.changeId, values);
+  const p7 = addSqlParameter(cbInsert, values);
+  const p8 = addSqlParameter(task.baseurl, values);
   if (isSupportOnConflict) {
-    let p9 = addSqlParameter(dateNow, values);
+    const p9 = addSqlParameter(dateNow, values);
     //http://stackoverflow.com/questions/34762732/how-to-find-out-if-an-upsert-was-an-update-with-postgresql-9-5-upsert
     let sqlCommand = `INSERT INTO ${cfgTableResult} (tenant, id, status, status_info, last_open_date, user_index, change_id, callback, baseurl)`;
     sqlCommand += ` VALUES (${p0}, ${p1}, ${p2}, ${p3}, ${p4}, ${p5}, ${p6}, ${p7}, ${p8})`;
     sqlCommand += ` ON CONFLICT (tenant, id) DO UPDATE SET last_open_date = ${p9}`;
     if (task.callback) {
-      let p10 = addSqlParameter(JSON.stringify(task.callback), values);
+      const p10 = addSqlParameter(JSON.stringify(task.callback), values);
       sqlCommand += `, callback = ${cfgTableResult}.callback || '${connectorUtilities.UserCallback.prototype.delimiter}{"userIndex":' `;
       sqlCommand += ` || (${cfgTableResult}.user_index + 1)::text || ',"callback":' || ${p10}::text || '}'`;
     }
     if (task.baseurl) {
-      let p11 = addSqlParameter(task.baseurl, values);
+      const p11 = addSqlParameter(task.baseurl, values);
       sqlCommand += `, baseurl = ${p11}`;
     }
     sqlCommand += `, user_index = ${cfgTableResult}.user_index + 1 RETURNING user_index as userindex;`;
@@ -155,10 +155,10 @@ function getUpsertString(task, values) {
 }
 
 function upsert(ctx, task) {
-  return new Promise(function(resolve, reject) {
-    let values = [];
+  return new Promise((resolve, reject) => {
+    const values = [];
     var sqlCommand = getUpsertString(task, values);
-    sqlQuery(ctx, sqlCommand, function(error, result) {
+    sqlQuery(ctx, sqlCommand, (error, result) => {
       if (error) {
         if (isSupportOnConflict && '42601' === error.code) {
           //SYNTAX ERROR
@@ -187,25 +187,25 @@ function insertChanges(ctx, tableChanges, startIndex, objChanges, docId, index, 
     return;
   }
   let isSupported = true;
-  let tenant = [];
-  let id = [];
-  let changeId = [];
-  let userId = [];
-  let userIdOriginal = [];
-  let username = [];
-  let change = [];
-  let time = [];
+  const tenant = [];
+  const id = [];
+  const changeId = [];
+  const userId = [];
+  const userIdOriginal = [];
+  const username = [];
+  const change = [];
+  const time = [];
   //Postgres 9.4 multi-argument unnest
   let sqlCommand = `INSERT INTO ${tableChanges} (tenant, id, change_id, user_id, user_id_original, user_name, change_data, change_date) `;
-  let changesType = cfgEditor['binaryChanges'] ? 'bytea' : 'text';
+  const changesType = cfgEditor['binaryChanges'] ? 'bytea' : 'text';
   sqlCommand += `SELECT * FROM UNNEST ($1::text[], $2::text[], $3::int[], $4::text[], $5::text[], $6::text[], $7::${changesType}[], $8::timestamp[]);`;
-  let values = [tenant, id, changeId, userId, userIdOriginal, username, change, time];
+  const values = [tenant, id, changeId, userId, userIdOriginal, username, change, time];
   let curLength = sqlCommand.length;
   for (; i < objChanges.length; ++i) {
     //4 is max utf8 bytes per symbol
     curLength += 4 * (docId.length + user.id.length + user.idOriginal.length + user.username.length + objChanges[i].change.length) + 4 + 8;
     if (curLength >= maxPacketSize && i > startIndex) {
-      sqlQuery(ctx, sqlCommand, function(error, output) {
+      sqlQuery(ctx, sqlCommand, (error, output) => {
         if (error && '42883' == error.code) {
           isSupported = false;
           ctx.logger.warn('postgresql does not support UNNEST');
@@ -227,7 +227,7 @@ function insertChanges(ctx, tableChanges, startIndex, objChanges, docId, index, 
     change.push(objChanges[i].change);
     time.push(objChanges[i].time);
   }
-  sqlQuery(ctx, sqlCommand, function(error, output) {
+  sqlQuery(ctx, sqlCommand, (error, output) => {
     if (error && '42883' == error.code) {
       isSupported = false;
       ctx.logger.warn('postgresql does not support UNNEST');
