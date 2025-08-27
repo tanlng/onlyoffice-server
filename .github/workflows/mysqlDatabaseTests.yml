@@ -7,6 +7,7 @@ on:
       - 'tests/integration/databaseTests/**'
       - 'DocService/sources/databaseConnectors/baseConnector.js'
       - 'DocService/sources/databaseConnectors/mysqlConnector.js'
+      - '.github/workflows/mysqlDatabaseTests.yml'
 jobs:
   mysql-tests:
     name: MYSQL
@@ -14,7 +15,7 @@ jobs:
 
     steps:
       - name: Run Mysql DB docker container
-        run: docker run --name mysql -p 8080:3306 -p 8081:33060 -e MYSQL_HOST=127.0.0.1 -e MYSQL_ROOT_PASSWORD=onlyoffice -e MYSQL_DATABASE=onlyoffice -d mysql:latest
+        run: docker run --name mysql -p 8080:3306 -p 8081:33060 -e MYSQL_HOST=127.0.0.1 -e MYSQL_ROOT_PASSWORD=onlyoffice -e MYSQL_DATABASE=onlyoffice -d mysql:8.0
 
       - name: Check out repository code
         uses: actions/checkout@v3
