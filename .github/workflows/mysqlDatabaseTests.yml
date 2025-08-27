@@ -39,7 +39,7 @@ jobs:
         run: |
           echo '{"services": {"CoAuthoring": {"sql": {"type": "mysql", "dbHost": "127.0.0.1", "dbPort": "8080", "dbUser": "root", "dbPass": "onlyoffice"}}}}' >> Common/config/local.json
 
-      - name : Creating schema
+      - name: Creating schema
         run: |
           docker cp ./schema/mysql/createdb.sql mysql:/
           docker exec mysql mysql -h 127.0.0.1 -u root --password=onlyoffice -D onlyoffice -e 'source /createdb.sql'

@@ -48,10 +48,10 @@ function connetPromise(closeCallback) {
           operationContext.global.logger.error('[AMQP] %s', err.stack);
           setTimeout(startConnect, RECONNECT_TIMEOUT);
         } else {
-          conn.on('error', (err) => {
+          conn.on('error', err => {
             operationContext.global.logger.error('[AMQP] conn error', err.stack);
           });
-          var closeEventCallback = function() {
+          var closeEventCallback = function () {
             //in some case receive multiple close events
             conn.removeListener('close', closeEventCallback);
             operationContext.global.logger.debug('[AMQP] conn close');
@@ -123,7 +123,7 @@ function consumePromise(channel, queue, messageCallback, options) {
 }
 function closePromise(conn) {
   return new Promise((resolve, reject) => {
-    conn.close((err) => {
+    conn.close(err => {
       if (err) {
         reject(err);
       } else {

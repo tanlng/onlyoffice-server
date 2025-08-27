@@ -59,21 +59,21 @@ config.util.extendDeep(connectionConfig, pgPoolExtraOptions);
 var pool = new pg.Pool(connectionConfig);
 //listen "error" event otherwise - unhandled exception(https://github.com/brianc/node-postgres/issues/2764#issuecomment-1163475426)
 pool.on('error', (err, _client) => {
-  operationContext.global.logger.error(`postgresql pool error %s`, err.stack)
-})
+  operationContext.global.logger.error(`postgresql pool error %s`, err.stack);
+});
 //todo datetime timezone
 pg.defaults.parseInputDatesAsUTC = true;
-types.setTypeParser(1114, (stringValue) => {
+types.setTypeParser(1114, stringValue => {
   return new Date(stringValue + '+0000');
 });
-types.setTypeParser(1184, (stringValue) => {
+types.setTypeParser(1184, stringValue => {
   return new Date(stringValue + '+0000');
 });
 
 var maxPacketSize = configSql.get('max_allowed_packet');
 
 function sqlQuery(ctx, sqlCommand, callbackFunction, opt_noModifyRes, opt_noLog, opt_values) {
-  co(function *() {
+  co(function* () {
     var result = null;
     var error = null;
     try {
@@ -158,26 +158,33 @@ function upsert(ctx, task) {
   return new Promise((resolve, reject) => {
     const values = [];
     var sqlCommand = getUpsertString(task, values);
-    sqlQuery(ctx, sqlCommand, (error, result) => {
-      if (error) {
-        if (isSupportOnConflict && '42601' === error.code) {
-          //SYNTAX ERROR
-          isSupportOnConflict = false;
-          ctx.logger.warn('checkIsSupportOnConflict false');
-          resolve(upsert(ctx, task));
+    sqlQuery(
+      ctx,
+      sqlCommand,
+      (error, result) => {
+        if (error) {
+          if (isSupportOnConflict && '42601' === error.code) {
+            //SYNTAX ERROR
+            isSupportOnConflict = false;
+            ctx.logger.warn('checkIsSupportOnConflict false');
+            resolve(upsert(ctx, task));
+          } else {
+            reject(error);
+          }
         } else {
-          reject(error);
+          if (result && result.rows.length > 0) {
+            var first = result.rows[0];
+            result = {};
+            result.isInsert = task.userIndex === first.userindex;
+            result.insertId = first.userindex;
+          }
+          resolve(result);
         }
-      } else {
-        if (result && result.rows.length > 0) {
-          var first = result.rows[0];
-          result = {};
-          result.isInsert = task.userIndex === first.userindex;
-          result.insertId = first.userindex;
-        }
-        resolve(result);
-      }
-    }, true, undefined, values);
+      },
+      true,
+      undefined,
+      values
+    );
   });
 }
 
@@ -205,17 +212,24 @@ function insertChanges(ctx, tableChanges, startIndex, objChanges, docId, index, 
     //4 is max utf8 bytes per symbol
     curLength += 4 * (docId.length + user.id.length + user.idOriginal.length + user.username.length + objChanges[i].change.length) + 4 + 8;
     if (curLength >= maxPacketSize && i > startIndex) {
-      sqlQuery(ctx, sqlCommand, (error, output) => {
-        if (error && '42883' == error.code) {
-          isSupported = false;
-          ctx.logger.warn('postgresql does not support UNNEST');
-        }
-        if (error) {
-          callback(error, output, isSupported);
-        } else {
-          insertChanges(ctx, tableChanges, i, objChanges, docId, index, user, callback);
-        }
-      }, undefined, undefined, values);
+      sqlQuery(
+        ctx,
+        sqlCommand,
+        (error, output) => {
+          if (error && '42883' == error.code) {
+            isSupported = false;
+            ctx.logger.warn('postgresql does not support UNNEST');
+          }
+          if (error) {
+            callback(error, output, isSupported);
+          } else {
+            insertChanges(ctx, tableChanges, i, objChanges, docId, index, user, callback);
+          }
+        },
+        undefined,
+        undefined,
+        values
+      );
       return;
     }
     tenant.push(ctx.tenant);
@@ -227,13 +241,20 @@ function insertChanges(ctx, tableChanges, startIndex, objChanges, docId, index, 
     change.push(objChanges[i].change);
     time.push(objChanges[i].time);
   }
-  sqlQuery(ctx, sqlCommand, (error, output) => {
-    if (error && '42883' == error.code) {
-      isSupported = false;
-      ctx.logger.warn('postgresql does not support UNNEST');
-    }
-    callback(error, output, isSupported);
-  }, undefined, undefined, values);
+  sqlQuery(
+    ctx,
+    sqlCommand,
+    (error, output) => {
+      if (error && '42883' == error.code) {
+        isSupported = false;
+        ctx.logger.warn('postgresql does not support UNNEST');
+      }
+      callback(error, output, isSupported);
+    },
+    undefined,
+    undefined,
+    values
+  );
 }
 
 module.exports = {

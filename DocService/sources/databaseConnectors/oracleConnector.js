@@ -54,7 +54,7 @@ const configuration = Object.assign({}, connectionConfiguration, additionalOptio
 const forceClosingCountdownMs = 2000;
 let pool = null;
 
-oracledb.fetchAsString = [ oracledb.NCLOB, oracledb.CLOB ];
+oracledb.fetchAsString = [oracledb.NCLOB, oracledb.CLOB];
 oracledb.autoCommit = true;
 
 function columnsToLowercase(rows) {
@@ -93,13 +93,13 @@ async function executeQuery(ctx, sqlCommand, values = [], noModifyRes = false, n
     connection = await pool.getConnection();
 
     const bondedValues = values ?? [];
-    const outputFormat = { outFormat: !noModifyRes ? oracledb.OUT_FORMAT_OBJECT : oracledb.OUT_FORMAT_ARRAY };
+    const outputFormat = {outFormat: !noModifyRes ? oracledb.OUT_FORMAT_OBJECT : oracledb.OUT_FORMAT_ARRAY};
     const result = await connection.execute(correctedSql, bondedValues, outputFormat);
 
-    let output = { rows: [], affectedRows: 0 };
+    let output = {rows: [], affectedRows: 0};
     if (!noModifyRes) {
       if (result?.rowsAffected) {
-        output = { affectedRows: result.rowsAffected };
+        output = {affectedRows: result.rowsAffected};
       }
 
       if (result?.rows) {
@@ -138,10 +138,10 @@ async function executeBunch(ctx, sqlCommand, values = [], noLog = false) {
     }
 
     connection = await pool.getConnection();
-    
+
     const result = await connection.executeMany(sqlCommand, values);
 
-    return { affectedRows: result?.rowsAffected ?? 0 };
+    return {affectedRows: result?.rowsAffected ?? 0};
   } catch (error) {
     if (!noLog) {
       ctx.logger.error(`sqlQuery() error while executing query: ${sqlCommand}\n${error.stack}`);
@@ -196,7 +196,7 @@ function getExpired(ctx, maxCount, expireSeconds) {
   const values = [];
   const date = addSqlParameter(expireDate, values);
   const count = addSqlParameter(maxCount, values);
-  const notExistingTenantAndId = `SELECT tenant, id FROM ${cfgTableChanges} WHERE ${cfgTableChanges}.tenant = ${cfgTableResult}.tenant AND ${cfgTableChanges}.id = ${cfgTableResult}.id AND ROWNUM <= 1`
+  const notExistingTenantAndId = `SELECT tenant, id FROM ${cfgTableChanges} WHERE ${cfgTableChanges}.tenant = ${cfgTableResult}.tenant AND ${cfgTableChanges}.id = ${cfgTableResult}.id AND ROWNUM <= 1`;
   const sqlCommand = `SELECT * FROM ${cfgTableResult} WHERE last_open_date <= ${date} AND NOT EXISTS(${notExistingTenantAndId}) AND ROWNUM <= ${count}`;
 
   return executeQuery(ctx, sqlCommand, values);
@@ -224,7 +224,7 @@ function makeUpdateSql(dateNow, task, values) {
   const id = addSqlParameter(task.key, values);
   const condition = `tenant = ${tenant} AND id = ${id}`;
 
-  const returning = addSqlParameter({ type: oracledb.NUMBER, dir: oracledb.BIND_OUT }, values);
+  const returning = addSqlParameter({type: oracledb.NUMBER, dir: oracledb.BIND_OUT}, values);
 
   return `UPDATE ${cfgTableResult} SET ${updateQuery} WHERE ${condition} RETURNING user_index INTO ${returning}`;
 }
@@ -258,15 +258,16 @@ async function upsert(ctx, task) {
     addSqlParameter(task.baseurl, insertValues)
   ];
 
-  const returned = addSqlParameter({ type: oracledb.NUMBER, dir: oracledb.BIND_OUT }, insertValues);
-  const sqlInsertTry = `INSERT INTO ${cfgTableResult} (tenant, id, status, status_info, last_open_date, user_index, change_id, callback, baseurl) `
-    + `VALUES(${insertValuesPlaceholder.join(', ')}) RETURNING user_index INTO ${returned}`;
+  const returned = addSqlParameter({type: oracledb.NUMBER, dir: oracledb.BIND_OUT}, insertValues);
+  const sqlInsertTry =
+    `INSERT INTO ${cfgTableResult} (tenant, id, status, status_info, last_open_date, user_index, change_id, callback, baseurl) ` +
+    `VALUES(${insertValuesPlaceholder.join(', ')}) RETURNING user_index INTO ${returned}`;
 
   try {
     const insertResult = await executeQuery(ctx, sqlInsertTry, insertValues, true, true);
     const insertId = getReturnedValue(insertResult);
 
-    return { isInsert: true, insertId };
+    return {isInsert: true, insertId};
   } catch (insertError) {
     if (insertError.code !== 'ORA-00001') {
       throw insertError;
@@ -276,7 +277,7 @@ async function upsert(ctx, task) {
     const updateResult = await executeQuery(ctx, makeUpdateSql(dateNow, task, values), values, true);
     const insertId = getReturnedValue(updateResult);
 
-    return { isInsert: false, insertId };
+    return {isInsert: false, insertId};
   }
 }
 
@@ -289,13 +290,14 @@ function insertChanges(ctx, tableChanges, startIndex, objChanges, docId, index, 
 
 async function insertChangesAsync(ctx, tableChanges, startIndex, objChanges, docId, index, user) {
   if (startIndex === objChanges.length) {
-    return { affectedRows: 0 };
+    return {affectedRows: 0};
   }
 
   const parametersCount = 8;
   const maxPlaceholderLength = ':99'.length;
   // (parametersCount - 1) - separator symbols length.
-  const maxInsertStatementLength = `INSERT /*+ APPEND_VALUES*/INTO ${tableChanges} VALUES()`.length + maxPlaceholderLength * parametersCount + (parametersCount - 1);
+  const maxInsertStatementLength =
+    `INSERT /*+ APPEND_VALUES*/INTO ${tableChanges} VALUES()`.length + maxPlaceholderLength * parametersCount + (parametersCount - 1);
   let packetCapacityReached = false;
 
   const values = [];
@@ -305,8 +307,12 @@ async function insertChangesAsync(ctx, tableChanges, startIndex, objChanges, doc
   let currentIndex = startIndex;
   for (; currentIndex < objChanges.length; ++currentIndex, ++index) {
     // 4 bytes is maximum for utf8 symbol.
-    const lengthUtf8Row = maxInsertStatementLength + indexBytes + timeBytes
-      + 4 * (ctx.tenant.length + docId.length + user.id.length + user.idOriginal.length + user.username.length + objChanges[currentIndex].change.length);
+    const lengthUtf8Row =
+      maxInsertStatementLength +
+      indexBytes +
+      timeBytes +
+      4 *
+        (ctx.tenant.length + docId.length + user.id.length + user.idOriginal.length + user.username.length + objChanges[currentIndex].change.length);
 
     if (lengthUtf8Row + lengthUtf8Current >= cfgMaxPacketSize && currentIndex > startIndex) {
       packetCapacityReached = true;
@@ -324,7 +330,7 @@ async function insertChangesAsync(ctx, tableChanges, startIndex, objChanges, doc
       objChanges[currentIndex].time
     ];
 
-    const rowValues = { ...parameters };
+    const rowValues = {...parameters};
 
     values.push(rowValues);
     lengthUtf8Current += lengthUtf8Row;
@@ -358,4 +364,4 @@ module.exports = {
   getExpired,
   upsert,
   insertChanges
-}
+};

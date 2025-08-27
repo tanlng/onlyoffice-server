@@ -30,7 +30,7 @@
  *
  */
 
-const { describe, test, expect, afterAll } = require('@jest/globals');
+const {describe, test, expect, afterAll} = require('@jest/globals');
 const config = require('../../../Common/node_modules/config');
 
 const baseConnector = require('../../../DocService/sources/databaseConnectors/baseConnector');
@@ -38,7 +38,7 @@ const operationContext = require('../../../Common/sources/operationContext');
 const taskResult = require('../../../DocService/sources/taskresult');
 const commonDefines = require('../../../Common/sources/commondefines');
 const constants = require('../../../Common/sources/constants');
-const utils = require("../../../Common/sources/utils");
+const utils = require('../../../Common/sources/utils');
 const configSql = config.get('services.CoAuthoring.sql');
 
 const ctx = new operationContext.Context();
@@ -72,7 +72,7 @@ const dbTypes = {
   string: function () {
     return this[cfgDbType].string;
   }
-}
+};
 
 const insertCases = {
   5: 'baseConnector-insert()-tester-5-rows',
@@ -91,20 +91,11 @@ const emptyCallbacksCase = [
   'baseConnector-getEmptyCallbacks()-tester-1',
   'baseConnector-getEmptyCallbacks()-tester-2',
   'baseConnector-getEmptyCallbacks()-tester-3',
-  'baseConnector-getEmptyCallbacks()-tester-4',
+  'baseConnector-getEmptyCallbacks()-tester-4'
 ];
-const documentsWithChangesCase = [
-  'baseConnector-getDocumentsWithChanges()-tester-0',
-  'baseConnector-getDocumentsWithChanges()-tester-1'
-];
-const getExpiredCase = [
-  'baseConnector-getExpired()-tester-0',
-  'baseConnector-getExpired()-tester-1',
-  'baseConnector-getExpired()-tester-2',
-];
-const getCountWithStatusCase = [
-  'baseConnector-getCountWithStatusCase()-tester-0'
-];
+const documentsWithChangesCase = ['baseConnector-getDocumentsWithChanges()-tester-0', 'baseConnector-getDocumentsWithChanges()-tester-1'];
+const getExpiredCase = ['baseConnector-getExpired()-tester-0', 'baseConnector-getExpired()-tester-1', 'baseConnector-getExpired()-tester-2'];
+const getCountWithStatusCase = ['baseConnector-getCountWithStatusCase()-tester-0'];
 const upsertCases = {
   insert: 'baseConnector-upsert()-tester-row-inserted',
   update: 'baseConnector-upsert()-tester-row-updated'
@@ -123,15 +114,13 @@ function createChanges(changesLength, date) {
 
   const length = changesLength - 1;
   for (let i = 1; i <= length; i++) {
-    objChanges.push(
-      {
-        docid: '__ffff_127.0.0.1new.docx41692082262909',
-        change: '"39;CgAAADcAXwA2ADQAMAACABwAAQAAAAAAAAABAAAALgAAAAAAAAAA"',
-        time: date,
-        user: 'uid-18',
-        useridoriginal: 'uid-1'
-      }
-    );
+    objChanges.push({
+      docid: '__ffff_127.0.0.1new.docx41692082262909',
+      change: '"39;CgAAADcAXwA2ADQAMAACABwAAQAAAAAAAAABAAAALgAAAAAAAAAA"',
+      time: date,
+      user: 'uid-18',
+      useridoriginal: 'uid-1'
+    });
   }
 
   return objChanges;
@@ -155,13 +144,20 @@ function deleteRowsByIds(table, ids) {
 
 function executeSql(sql, values = []) {
   return new Promise((resolve, reject) => {
-    baseConnector.sqlQuery(ctx, sql, function (error, result) {
-      if (error) {
-        reject(error)
-      } else {
-        resolve(result)
-      }
-    }, false, false, values);
+    baseConnector.sqlQuery(
+      ctx,
+      sql,
+      function (error, result) {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(result);
+        }
+      },
+      false,
+      false,
+      values
+    );
   });
 }
 
@@ -229,7 +225,7 @@ describe('Base database connector', function () {
     expect(result.length).toEqual(1);
   });
 
-  test('Correct return format of requested rows', async function() {
+  test('Correct return format of requested rows', async function () {
     const result = await baseConnector.healthCheck(ctx);
 
     // The [[constructor]] field is referring to a parent class instance, so for Object-like values it is equal to itself.
@@ -243,19 +239,23 @@ describe('Base database connector', function () {
   });
 
   test('Correct return format of changing in DB', async function () {
-    const createTableSql = `CREATE TABLE test_table(num ${dbTypes.number()});`
+    const createTableSql = `CREATE TABLE test_table(num ${dbTypes.number()});`;
     const alterTableSql = `INSERT INTO test_table VALUES(1);`;
 
     await executeSql(createTableSql);
     const result = await executeSql(alterTableSql);
 
-    expect(result).toEqual({ affectedRows: 1 });
+    expect(result).toEqual({affectedRows: 1});
   });
 
   describe('DB tables existence', function () {
     const tables = {
-      [cfgTableResult]: constants.TABLE_RESULT_SCHEMA.map(column => { return { column_name: column } }),
-      [cfgTableChanges]: constants.TABLE_CHANGES_SCHEMA.map(column => { return { column_name: column } })
+      [cfgTableResult]: constants.TABLE_RESULT_SCHEMA.map(column => {
+        return {column_name: column};
+      }),
+      [cfgTableChanges]: constants.TABLE_CHANGES_SCHEMA.map(column => {
+        return {column_name: column};
+      })
     };
 
     for (const table in tables) {
@@ -266,8 +266,8 @@ describe('Base database connector', function () {
         }
       });
     }
-    
-    const table = "unused_table";
+
+    const table = 'unused_table';
     test(`${table} table absence`, async function () {
       const result = await baseConnector.getTableColumns(ctx, table);
       expect(result).toEqual([]);
@@ -335,7 +335,7 @@ describe('Base database connector', function () {
         const result = await baseConnector.getChangesIndexPromise(ctx, docId);
 
         // We created 10 changes rows, change_id: 0..9, changes index is MAX(change_id).
-        const expected = [{ change_id: 9 }];
+        const expected = [{change_id: 9}];
         expect(result).toEqual(expected);
       });
 
@@ -354,7 +354,7 @@ describe('Base database connector', function () {
       });
     });
 
-    test('Get empty callbacks' , async function () {
+    test('Get empty callbacks', async function () {
       const idCount = 5;
       const notNullCallbacks = idCount - 2;
 
@@ -390,10 +390,7 @@ describe('Base database connector', function () {
 
       for (const id of documentsWithChangesCase) {
         const task = createTask(id);
-        await Promise.all([
-          baseConnector.insertChangesPromise(ctx, objChanges, id, index, user),
-          insertIntoResultTable(date, task)
-        ]);
+        await Promise.all([baseConnector.insertChangesPromise(ctx, objChanges, id, index, user), insertIntoResultTable(date, task)]);
       }
 
       const resultAfterNewRows = await baseConnector.getDocumentsWithChanges(ctx);
@@ -420,7 +417,7 @@ describe('Base database connector', function () {
 
     test('Get Count With Status', async function () {
       let countWithStatus;
-      let unknownStatus = 99;//to avoid collision with running server
+      let unknownStatus = 99; //to avoid collision with running server
       let EXEC_TIMEOUT = 30000 + utils.getConvertionTimeout(undefined);
       countWithStatus = await baseConnector.getCountWithStatus(ctx, unknownStatus, EXEC_TIMEOUT);
       expect(countWithStatus).toEqual(0);
@@ -443,7 +440,7 @@ describe('Base database connector', function () {
       const result = await baseConnector.upsert(ctx, task);
 
       // isInsert should be true because of insert operation, insertId should be 1 by default.
-      const expected = { isInsert: true, insertId: 1 };
+      const expected = {isInsert: true, insertId: 1};
       expect(result).toEqual(expected);
 
       const insertedResult = await getRowsCountById(cfgTableResult, task.key);
@@ -463,12 +460,12 @@ describe('Base database connector', function () {
       const result = await baseConnector.upsert(ctx, task);
 
       // isInsert should be false because of update operation, insertId should be 2 by updating clause.
-      const expected = { isInsert: false, insertId: 2 };
+      const expected = {isInsert: false, insertId: 2};
       expect(result).toEqual(expected);
 
       const updatedRow = await executeSql(`SELECT id, baseurl FROM ${cfgTableResult} WHERE id = '${task.key}';`);
 
-      const expectedUrlChanges = [{ id: task.key, baseurl: 'some-updated-url' }];
+      const expectedUrlChanges = [{id: task.key, baseurl: 'some-updated-url'}];
       expect(updatedRow).toEqual(expectedUrlChanges);
     });
   });

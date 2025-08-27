@@ -49,7 +49,9 @@ const forceClosingCountdownMs = 2000;
 // dmdb driver separates PoolAttributes and ConnectionAttributes.
 // For some reason if you use pool you must define connection attributes in connectString, they are not included in config object, and pool.getConnection() can't configure it.
 const poolHostInfo = `dm://${cfgDbUser}:${cfgDbPass}@${cfgDbHost}:${cfgDbPort}`;
-const connectionOptions = Object.entries(cfgDamengExtraOptions).map(option => option.join('=')).join('&');
+const connectionOptions = Object.entries(cfgDamengExtraOptions)
+  .map(option => option.join('='))
+  .join('&');
 
 let pool = null;
 const poolConfig = {
@@ -64,12 +66,12 @@ function readLob(lob) {
     let blobData = Buffer.alloc(0);
     let totalLength = 0;
 
-    lob.on('data', (chunk) => {
+    lob.on('data', chunk => {
       totalLength += chunk.length;
       blobData = Buffer.concat([blobData, chunk], totalLength);
     });
 
-    lob.on('error', (err) => {
+    lob.on('error', err => {
       reject(err);
     });
 
@@ -117,16 +119,16 @@ async function executeQuery(ctx, sqlCommand, values = [], noModifyRes = false, n
     }
 
     connection = await pool.getConnection();
-    const result = await connection.execute(sqlCommand, values, { resultSet: false });
+    const result = await connection.execute(sqlCommand, values, {resultSet: false});
 
     let output = result;
     if (!noModifyRes) {
       if (result?.rows) {
         output = await formatResult(result);
       } else if (result?.rowsAffected) {
-        output = { affectedRows: result.rowsAffected };
+        output = {affectedRows: result.rowsAffected};
       } else {
-        output = { rows: [], affectedRows: 0 };
+        output = {rows: [], affectedRows: 0};
       }
     }
 
@@ -147,7 +149,7 @@ function closePool() {
 }
 
 function addSqlParameter(val, values) {
-  values.push({ val });
+  values.push({val});
   return `:${values.length}`;
 }
 
@@ -159,7 +161,9 @@ async function getTableColumns(ctx, tableName) {
   const values = [];
   const sqlParam = addSqlParameter(tableName.toUpperCase(), values);
   const result = await executeQuery(ctx, `SELECT column_name FROM DBA_TAB_COLUMNS WHERE table_name = ${sqlParam};`, values);
-  return result.map(row => { return { column_name: row.column_name.toLowerCase() }});
+  return result.map(row => {
+    return {column_name: row.column_name.toLowerCase()};
+  });
 }
 
 async function upsert(ctx, task) {

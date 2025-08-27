@@ -43,31 +43,31 @@ function connetPromise(closeCallback) {
   return new Promise((resolve, _reject) => {
     //todo use built-in reconnect logic
     function startConnect() {
-      let onDisconnected = function() {
+      let onDisconnected = function () {
         if (isConnected) {
           closeCallback();
         } else {
           setTimeout(startConnect, RECONNECT_TIMEOUT);
         }
-      }
+      };
       const conn = container.create_container().connect(cfgRabbitSocketOptions);
       let isConnected = false;
-      conn.on('connection_open', (_context) => {
+      conn.on('connection_open', _context => {
         operationContext.global.logger.debug('[AMQP] connected');
         isConnected = true;
         resolve(conn);
       });
-      conn.on('connection_error', (context) => {
+      conn.on('connection_error', context => {
         operationContext.global.logger.debug('[AMQP] connection_error %s', context.error && context.error);
       });
-      conn.on('connection_close', (_context) => {
+      conn.on('connection_close', _context => {
         operationContext.global.logger.debug('[AMQP] conn close');
         if (onDisconnected) {
           onDisconnected();
           onDisconnected = null;
         }
       });
-      conn.on('disconnected', (context) => {
+      conn.on('disconnected', context => {
         operationContext.global.logger.error('[AMQP] disconnected %s', context.error && context.error.stack);
         if (onDisconnected) {
           onDisconnected();
