@@ -15,7 +15,7 @@ jobs:
 
     steps:
       - name: Run Mysql DB docker container
-        run: docker run --name mysql -p 8080:3306 -p 8081:33060 -e MYSQL_HOST=127.0.0.1 -e MYSQL_ROOT_PASSWORD=onlyoffice -e MYSQL_DATABASE=onlyoffice -d mysql:8.0
+        run: docker run --name ci_mysql -p 8080:3306 -p 8081:33060 -e MYSQL_HOST=127.0.0.1 -e MYSQL_ROOT_PASSWORD=onlyoffice -e MYSQL_DATABASE=onlyoffice -d mysql:latest
 
       - name: Check out repository code
         uses: actions/checkout@v3
@@ -40,10 +40,13 @@ jobs:
         run: |
           echo '{"services": {"CoAuthoring": {"sql": {"type": "mysql", "dbHost": "127.0.0.1", "dbPort": "8080", "dbUser": "root", "dbPass": "onlyoffice"}}}}' >> Common/config/local.json
 
+      - name: Wait for MySQL to be ready
+        run: |
+          docker exec -e MYSQL_PWD=onlyoffice ci_mysql sh -c 'until mysqladmin ping -uroot --silent; do sleep 1; done'
+
       - name: Creating schema
         run: |
-          docker cp ./schema/mysql/createdb.sql mysql:/
-          docker exec mysql mysql -h 127.0.0.1 -u root --password=onlyoffice -D onlyoffice -e 'source /createdb.sql'
+          docker exec -i -e MYSQL_PWD=onlyoffice ci_mysql mysql -uroot -D onlyoffice < schema/mysql/createdb.sql
 
       - name: Run Jest
         run: npm run "integration database tests"
