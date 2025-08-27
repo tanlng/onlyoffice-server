@@ -58,7 +58,7 @@ const connectionConfig = {
 config.util.extendDeep(connectionConfig, pgPoolExtraOptions);
 var pool = new pg.Pool(connectionConfig);
 //listen "error" event otherwise - unhandled exception(https://github.com/brianc/node-postgres/issues/2764#issuecomment-1163475426)
-pool.on('error', (err, client) => {
+pool.on('error', (err, _client) => {
   operationContext.global.logger.error(`postgresql pool error %s`, err.stack)
 })
 //todo datetime timezone

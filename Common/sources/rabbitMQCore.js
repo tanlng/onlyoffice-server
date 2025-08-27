@@ -33,7 +33,6 @@
 'use strict';
 var config = require('config');
 var amqp = require('amqplib/callback_api');
-var logger = require('./logger');
 const operationContext = require('./operationContext');
 
 var cfgRabbitUrl = config.get('rabbitmq.url');
@@ -42,7 +41,7 @@ var cfgRabbitSocketOptions = config.util.cloneDeep(config.get('rabbitmq.socketOp
 var RECONNECT_TIMEOUT = 1000;
 
 function connetPromise(closeCallback) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve, _reject) => {
     function startConnect() {
       amqp.connect(cfgRabbitUrl, cfgRabbitSocketOptions, (err, conn) => {
         if (null != err) {
