@@ -66,10 +66,10 @@ const dbTypes = {
     number: 'INT',
     string: 'VARCHAR(50)'
   },
-  number () {
+  number() {
     return this[cfgDbType].number;
   },
-  string () {
+  string() {
     return this[cfgDbType].string;
   }
 };
