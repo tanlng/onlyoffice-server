@@ -62,7 +62,7 @@ function columnsToLowercase(rows) {
   for (const row of rows) {
     const newRow = {};
     for (const column in row) {
-      if (row.hasOwnProperty(column)) {
+      if (row.hasOwn(column)) {
         newRow[column.toLowerCase()] = row[column];
       }
     }
