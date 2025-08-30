@@ -66,10 +66,10 @@ const dbTypes = {
     number: 'INT',
     string: 'VARCHAR(50)'
   },
-  number: function () {
+  number () {
     return this[cfgDbType].number;
   },
-  string: function () {
+  string () {
     return this[cfgDbType].string;
   }
 };
@@ -147,7 +147,7 @@ function executeSql(sql, values = []) {
     baseConnector.sqlQuery(
       ctx,
       sql,
-      function (error, result) {
+      (error, result) => {
         if (error) {
           reject(error);
         } else {
@@ -199,7 +199,7 @@ function insertIntoResultTable(dateNow, task) {
   return executeSql(`INSERT INTO ${cfgTableResult}(${columns.join(', ')}) VALUES(${placeholder.join(', ')});`, values);
 }
 
-afterAll(async function () {
+afterAll(async () => {
   const insertIds = Object.values(insertCases);
   const changesIds = Object.values(changesCases);
   const upsertIds = Object.values(upsertCases);
@@ -218,14 +218,14 @@ afterAll(async function () {
 });
 
 // Assumed that at least default DB was installed and configured.
-describe('Base database connector', function () {
-  test('Availability of configured DB', async function () {
+describe('Base database connector', () => {
+  test('Availability of configured DB', async () => {
     const result = await baseConnector.healthCheck(ctx);
 
     expect(result.length).toEqual(1);
   });
 
-  test('Correct return format of requested rows', async function () {
+  test('Correct return format of requested rows', async () => {
     const result = await baseConnector.healthCheck(ctx);
 
     // The [[constructor]] field is referring to a parent class instance, so for Object-like values it is equal to itself.
@@ -238,7 +238,7 @@ describe('Base database connector', function () {
     expect(Object.values(result[0])[0]).toEqual(1);
   });
 
-  test('Correct return format of changing in DB', async function () {
+  test('Correct return format of changing in DB', async () => {
     const createTableSql = `CREATE TABLE test_table(num ${dbTypes.number()});`;
     const alterTableSql = `INSERT INTO test_table VALUES(1);`;
 
@@ -248,7 +248,7 @@ describe('Base database connector', function () {
     expect(result).toEqual({affectedRows: 1});
   });
 
-  describe('DB tables existence', function () {
+  describe('DB tables existence', () => {
     const tables = {
       [cfgTableResult]: constants.TABLE_RESULT_SCHEMA.map(column => {
         return {column_name: column};
@@ -259,7 +259,7 @@ describe('Base database connector', function () {
     };
 
     for (const table in tables) {
-      test(`${table} table existence`, async function () {
+      test(`${table} table existence`, async () => {
         const result = await baseConnector.getTableColumns(ctx, table);
         for (const row of tables[table]) {
           expect(result).toContainEqual(row);
@@ -268,13 +268,13 @@ describe('Base database connector', function () {
     }
 
     const table = 'unused_table';
-    test(`${table} table absence`, async function () {
+    test(`${table} table absence`, async () => {
       const result = await baseConnector.getTableColumns(ctx, table);
       expect(result).toEqual([]);
     });
   });
 
-  describe('Changes manipulations', function () {
+  describe('Changes manipulations', () => {
     const date = new Date();
     const index = 0;
     const user = {
@@ -285,9 +285,9 @@ describe('Base database connector', function () {
       view: false
     };
 
-    describe('Add changes', function () {
+    describe('Add changes', () => {
       for (const testCase in insertCases) {
-        test(`${testCase} rows inserted`, async function () {
+        test(`${testCase} rows inserted`, async () => {
           const docId = insertCases[testCase];
           const objChanges = createChanges(+testCase, date);
 
@@ -301,11 +301,11 @@ describe('Base database connector', function () {
       }
     });
 
-    describe('Get and delete changes', function () {
+    describe('Get and delete changes', () => {
       const changesCount = 10;
       const objChanges = createChanges(changesCount, date);
 
-      test('Get changes in range', async function () {
+      test('Get changes in range', async () => {
         const docId = changesCases.range;
         const additionalChangesCount = 5;
         const dayBefore = new Date();
@@ -325,7 +325,7 @@ describe('Base database connector', function () {
         expect(resultByDate.length).toEqual(additionalChangesCount);
       });
 
-      test('Get changes index', async function () {
+      test('Get changes index', async () => {
         const docId = changesCases.index;
 
         await noRowsExistenceCheck(cfgTableChanges, docId);
@@ -339,7 +339,7 @@ describe('Base database connector', function () {
         expect(result).toEqual(expected);
       });
 
-      test('Delete changes', async function () {
+      test('Delete changes', async () => {
         const docId = changesCases.delete;
 
         await baseConnector.insertChangesPromise(ctx, objChanges, docId, index, user);
@@ -354,7 +354,7 @@ describe('Base database connector', function () {
       });
     });
 
-    test('Get empty callbacks', async function () {
+    test('Get empty callbacks', async () => {
       const idCount = 5;
       const notNullCallbacks = idCount - 2;
 
@@ -383,7 +383,7 @@ describe('Base database connector', function () {
       expect(resultAfter.length).toEqual(resultBefore.length + idCount - notNullCallbacks);
     });
 
-    test('Get documents with changes', async function () {
+    test('Get documents with changes', async () => {
       const objChanges = createChanges(1, date);
 
       const resultBeforeNewRows = await baseConnector.getDocumentsWithChanges(ctx);
@@ -397,7 +397,7 @@ describe('Base database connector', function () {
       expect(resultAfterNewRows.length).toEqual(resultBeforeNewRows.length + documentsWithChangesCase.length);
     });
 
-    test('Get expired', async function () {
+    test('Get expired', async () => {
       const maxCount = 100;
       const dayBefore = new Date();
       dayBefore.setDate(dayBefore.getDate() - 1);
@@ -415,10 +415,10 @@ describe('Base database connector', function () {
       expect(resultAfterNewRows.length).toEqual(resultBeforeNewRows.length + getExpiredCase.length);
     });
 
-    test('Get Count With Status', async function () {
+    test('Get Count With Status', async () => {
       let countWithStatus;
-      let unknownStatus = 99; //to avoid collision with running server
-      let EXEC_TIMEOUT = 30000 + utils.getConvertionTimeout(undefined);
+      const unknownStatus = 99; //to avoid collision with running server
+      const EXEC_TIMEOUT = 30000 + utils.getConvertionTimeout(undefined);
       countWithStatus = await baseConnector.getCountWithStatus(ctx, unknownStatus, EXEC_TIMEOUT);
       expect(countWithStatus).toEqual(0);
       for (const id of getCountWithStatusCase) {
@@ -431,8 +431,8 @@ describe('Base database connector', function () {
     });
   });
 
-  describe('upsert() method', function () {
-    test('New row inserted', async function () {
+  describe('upsert() method', () => {
+    test('New row inserted', async () => {
       const task = createTask(upsertCases.insert);
 
       await noRowsExistenceCheck(cfgTableResult, task.key);
@@ -448,7 +448,7 @@ describe('Base database connector', function () {
       expect(insertedResult).toEqual(1);
     });
 
-    test('Row updated', async function () {
+    test('Row updated', async () => {
       const task = createTask(upsertCases.update, '', 'some-url');
 
       await noRowsExistenceCheck(cfgTableResult, task.key);
