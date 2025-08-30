@@ -31,14 +31,14 @@
  */
 
 'use strict';
-var config = require('config');
-var amqp = require('amqplib/callback_api');
+const config = require('config');
+const amqp = require('amqplib/callback_api');
 const operationContext = require('./operationContext');
 
-var cfgRabbitUrl = config.get('rabbitmq.url');
-var cfgRabbitSocketOptions = config.util.cloneDeep(config.get('rabbitmq.socketOptions'));
+const cfgRabbitUrl = config.get('rabbitmq.url');
+const cfgRabbitSocketOptions = config.util.cloneDeep(config.get('rabbitmq.socketOptions'));
 
-var RECONNECT_TIMEOUT = 1000;
+const RECONNECT_TIMEOUT = 1000;
 
 function connetPromise(closeCallback) {
   return new Promise((resolve, _reject) => {
@@ -51,7 +51,7 @@ function connetPromise(closeCallback) {
           conn.on('error', err => {
             operationContext.global.logger.error('[AMQP] conn error', err.stack);
           });
-          var closeEventCallback = function () {
+          const closeEventCallback = function () {
             //in some case receive multiple close events
             conn.removeListener('close', closeEventCallback);
             operationContext.global.logger.debug('[AMQP] conn close');

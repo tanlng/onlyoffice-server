@@ -31,13 +31,13 @@
  */
 
 'use strict';
-var config = require('config');
-var container = require('rhea');
+const config = require('config');
+const container = require('rhea');
 const operationContext = require('./operationContext');
 
 const cfgRabbitSocketOptions = config.util.cloneDeep(config.get('activemq.connectOptions'));
 
-var RECONNECT_TIMEOUT = 1000;
+const RECONNECT_TIMEOUT = 1000;
 
 function connetPromise(closeCallback) {
   return new Promise((resolve, _reject) => {

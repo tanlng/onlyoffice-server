@@ -32,15 +32,15 @@
 
 'use strict';
 
-var pg = require('pg');
-var co = require('co');
-var types = require('pg').types;
+const pg = require('pg');
+const co = require('co');
+const types = require('pg').types;
 const connectorUtilities = require('./connectorUtilities');
 const operationContext = require('../../../Common/sources/operationContext');
 const config = require('config');
-var configSql = config.get('services.CoAuthoring.sql');
+const configSql = config.get('services.CoAuthoring.sql');
 const cfgTableResult = config.get('services.CoAuthoring.sql.tableResult');
-var pgPoolExtraOptions = config.util.cloneDeep(configSql.get('pgPoolExtraOptions'));
+const pgPoolExtraOptions = config.util.cloneDeep(configSql.get('pgPoolExtraOptions'));
 const cfgEditor = config.get('services.CoAuthoring.editor');
 
 const connectionConfig = {
@@ -56,7 +56,7 @@ const connectionConfig = {
 //clone pgPoolExtraOptions to resolve 'TypeError: Cannot redefine property: key' in pg-pool
 //timeouts from https://github.com/brianc/node-postgres/issues/3018#issuecomment-1619729794
 config.util.extendDeep(connectionConfig, pgPoolExtraOptions);
-var pool = new pg.Pool(connectionConfig);
+const pool = new pg.Pool(connectionConfig);
 //listen "error" event otherwise - unhandled exception(https://github.com/brianc/node-postgres/issues/2764#issuecomment-1163475426)
 pool.on('error', (err, _client) => {
   operationContext.global.logger.error(`postgresql pool error %s`, err.stack);
@@ -70,12 +70,12 @@ types.setTypeParser(1184, stringValue => {
   return new Date(stringValue + '+0000');
 });
 
-var maxPacketSize = configSql.get('max_allowed_packet');
+const maxPacketSize = configSql.get('max_allowed_packet');
 
 function sqlQuery(ctx, sqlCommand, callbackFunction, opt_noModifyRes, opt_noLog, opt_values) {
   co(function* () {
-    var result = null;
-    var error = null;
+    let result = null;
+    let error = null;
     try {
       result = yield pool.query(sqlCommand, opt_values);
     } catch (err) {
@@ -85,7 +85,7 @@ function sqlQuery(ctx, sqlCommand, callbackFunction, opt_noModifyRes, opt_noLog,
       }
     } finally {
       if (callbackFunction) {
-        var output = result;
+        let output = result;
         if (result && !opt_noModifyRes) {
           if ('SELECT' === result.command) {
             output = result.rows;
@@ -112,7 +112,7 @@ function concatParams(val1, val2) {
   return `COALESCE(${val1}, '') || COALESCE(${val2}, '')`;
 }
 
-var isSupportOnConflict = true;
+let isSupportOnConflict = true;
 
 function getUpsertString(task, values) {
   task.completeDefaults();
@@ -157,7 +157,7 @@ function getUpsertString(task, values) {
 function upsert(ctx, task) {
   return new Promise((resolve, reject) => {
     const values = [];
-    var sqlCommand = getUpsertString(task, values);
+    const sqlCommand = getUpsertString(task, values);
     sqlQuery(
       ctx,
       sqlCommand,
@@ -173,7 +173,7 @@ function upsert(ctx, task) {
           }
         } else {
           if (result && result.rows.length > 0) {
-            var first = result.rows[0];
+            const first = result.rows[0];
             result = {};
             result.isInsert = task.userIndex === first.userindex;
             result.insertId = first.userindex;
