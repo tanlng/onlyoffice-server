@@ -59,7 +59,7 @@ const additionalOptions = config.util.cloneDeep(configSql.get('oracleExtraOption
 // Initialize thick mode
 if (additionalOptions?.thin === false) {
   try {
-    oracledb.initOracleClient(additionalOptions?.libDir ? { libDir: additionalOptions.libDir } : {});
+    oracledb.initOracleClient(additionalOptions?.libDir ? {libDir: additionalOptions.libDir} : {});
   } catch (err) {
     operationContext.global.logger.error('Failed to initialize thick Oracle client:', err);
   }
@@ -69,10 +69,10 @@ delete additionalOptions.thin;
 delete additionalOptions.libDir;
 
 const configuration = Object.assign({}, connectionConfiguration, additionalOptions);
-const forceClosingCountdownMs = 2000;
+const forceClosingCountdownMs = 2; // in SECONDS per node-oracledb API, not milliseconds.
 let pool = null;
 
-oracledb.fetchAsString = [ oracledb.NCLOB, oracledb.CLOB ];
+oracledb.fetchAsString = [oracledb.NCLOB, oracledb.CLOB];
 oracledb.autoCommit = true;
 
 function columnsToLowercase(rows) {
@@ -80,7 +80,7 @@ function columnsToLowercase(rows) {
   for (const row of rows) {
     const newRow = {};
     for (const column in row) {
-      if (row.hasOwnProperty(column)) {
+      if (Object.hasOwn(row, column)) {
         newRow[column.toLowerCase()] = row[column];
       }
     }
@@ -111,13 +111,13 @@ async function executeQuery(ctx, sqlCommand, values = [], noModifyRes = false, n
     connection = await pool.getConnection();
 
     const bondedValues = values ?? [];
-    const outputFormat = { outFormat: !noModifyRes ? oracledb.OUT_FORMAT_OBJECT : oracledb.OUT_FORMAT_ARRAY };
+    const outputFormat = {outFormat: !noModifyRes ? oracledb.OUT_FORMAT_OBJECT : oracledb.OUT_FORMAT_ARRAY};
     const result = await connection.execute(correctedSql, bondedValues, outputFormat);
 
-    let output = { rows: [], affectedRows: 0 };
+    let output = {rows: [], affectedRows: 0};
     if (!noModifyRes) {
       if (result?.rowsAffected) {
-        output = { affectedRows: result.rowsAffected };
+        output = {affectedRows: result.rowsAffected};
       }
 
       if (result?.rows) {
@@ -183,7 +183,7 @@ async function executeBunch(ctx, sqlCommand, values = [], options, noLog = false
       }
     }
 
-    return { affectedRows: result?.rowsAffected ?? 0 };
+    return {affectedRows: result?.rowsAffected ?? 0};
   } catch (error) {
     if (!noLog) {
       ctx.logger.error(`executeBunch() error while executing query: ${sqlCommand}\n${error.stack}`);
@@ -221,8 +221,8 @@ function concatParams(firstParameter, secondParameter) {
 }
 
 function getTableColumns(ctx, tableName) {
-  let values = [];
-  let sqlParam = addSqlParameter(tableName.toUpperCase(), values);
+  const values = [];
+  const sqlParam = addSqlParameter(tableName.toUpperCase(), values);
   return executeQuery(ctx, `SELECT LOWER(column_name) AS column_name FROM user_tab_columns WHERE table_name = ${sqlParam}`, values);
 }
 
@@ -246,7 +246,7 @@ function getExpired(ctx, maxCount, expireSeconds) {
   const values = [];
   const date = addSqlParameter(expireDate, values);
   const count = addSqlParameter(maxCount, values);
-  const notExistingTenantAndId = `SELECT tenant, id FROM ${cfgTableChanges} WHERE ${cfgTableChanges}.tenant = ${cfgTableResult}.tenant AND ${cfgTableChanges}.id = ${cfgTableResult}.id AND ROWNUM <= 1`
+  const notExistingTenantAndId = `SELECT tenant, id FROM ${cfgTableChanges} WHERE ${cfgTableChanges}.tenant = ${cfgTableResult}.tenant AND ${cfgTableChanges}.id = ${cfgTableResult}.id AND ROWNUM <= 1`;
   const sqlCommand = `SELECT * FROM ${cfgTableResult} WHERE last_open_date <= ${date} AND NOT EXISTS(${notExistingTenantAndId}) AND ROWNUM <= ${count}`;
 
   return executeQuery(ctx, sqlCommand, values);
@@ -274,7 +274,7 @@ function makeUpdateSql(dateNow, task, values) {
   const id = addSqlParameter(task.key, values);
   const condition = `tenant = ${tenant} AND id = ${id}`;
 
-  const returning = addSqlParameter({ type: oracledb.NUMBER, dir: oracledb.BIND_OUT }, values);
+  const returning = addSqlParameter({type: oracledb.NUMBER, dir: oracledb.BIND_OUT}, values);
 
   return `UPDATE ${cfgTableResult} SET ${updateQuery} WHERE ${condition} RETURNING user_index INTO ${returning}`;
 }
@@ -308,15 +308,16 @@ async function upsert(ctx, task) {
     addSqlParameter(task.baseurl, insertValues)
   ];
 
-  const returned = addSqlParameter({ type: oracledb.NUMBER, dir: oracledb.BIND_OUT }, insertValues);
-  let sqlInsertTry = `INSERT INTO ${cfgTableResult} (tenant, id, status, status_info, last_open_date, user_index, change_id, callback, baseurl) `
-    + `VALUES(${insertValuesPlaceholder.join(', ')}) RETURNING user_index INTO ${returned}`;
+  const returned = addSqlParameter({type: oracledb.NUMBER, dir: oracledb.BIND_OUT}, insertValues);
+  const sqlInsertTry =
+    `INSERT INTO ${cfgTableResult} (tenant, id, status, status_info, last_open_date, user_index, change_id, callback, baseurl) ` +
+    `VALUES(${insertValuesPlaceholder.join(', ')}) RETURNING user_index INTO ${returned}`;
 
   try {
     const insertResult = await executeQuery(ctx, sqlInsertTry, insertValues, true, true);
     const insertId = getReturnedValue(insertResult);
 
-    return { isInsert: true, insertId };
+    return {isInsert: true, insertId};
   } catch (insertError) {
     if (insertError.code !== 'ORA-00001') {
       throw insertError;
@@ -326,7 +327,7 @@ async function upsert(ctx, task) {
     const updateResult = await executeQuery(ctx, makeUpdateSql(dateNow, task, values), values, true);
     const insertId = getReturnedValue(updateResult);
 
-    return { isInsert: false, insertId };
+    return {isInsert: false, insertId};
   }
 }
 
@@ -352,7 +353,7 @@ function insertChanges(ctx, tableChanges, startIndex, objChanges, docId, index, 
  */
 async function insertChangesAsync(ctx, tableChanges, startIndex, objChanges, docId, index, user, allowParallel = true) {
   if (startIndex === objChanges.length) {
-    return { affectedRows: 0 };
+    return {affectedRows: 0};
   }
 
   const parametersCount = 8;
@@ -370,11 +371,15 @@ async function insertChangesAsync(ctx, tableChanges, startIndex, objChanges, doc
   let currentIndex = startIndex;
   for (; currentIndex < objChanges.length; ++currentIndex, ++index) {
     // 4 bytes is maximum for utf8 symbol.
-    const lengthUtf8Row = maxInsertStatementLength + indexBytes + timeBytes
-      + 4 * (ctx.tenant.length + docId.length + user.id.length + user.idOriginal.length + user.username.length + objChanges[currentIndex].change.length);
+    const lengthUtf8Row =
+      maxInsertStatementLength +
+      indexBytes +
+      timeBytes +
+      4 *
+        (ctx.tenant.length + docId.length + user.id.length + user.idOriginal.length + user.username.length + objChanges[currentIndex].change.length);
 
     // Chunk by packet size and by max rows per batch
-    if ((lengthUtf8Row + lengthUtf8Current >= cfgMaxPacketSize || (values.length >= MAX_EXECUTE_MANY_ROWS)) && currentIndex > startIndex) {
+    if ((lengthUtf8Row + lengthUtf8Current >= cfgMaxPacketSize || values.length >= MAX_EXECUTE_MANY_ROWS) && currentIndex > startIndex) {
       packetCapacityReached = true;
       break;
     }
@@ -385,16 +390,7 @@ async function insertChangesAsync(ctx, tableChanges, startIndex, objChanges, doc
     const changeStr = objChanges[currentIndex].change;
     if (changeStr.length > maxChangeLen) maxChangeLen = changeStr.length;
 
-    const parameters = [
-      ctx.tenant,
-      docId,
-      index,
-      user.id,
-      user.idOriginal,
-      user.username,
-      changeStr,
-      changeTime
-    ];
+    const parameters = [ctx.tenant, docId, index, user.id, user.idOriginal, user.username, changeStr, changeTime];
 
     // Use positional binding (array-of-arrays) for :0..:7 placeholders
     values.push(parameters);
@@ -411,22 +407,22 @@ async function insertChangesAsync(ctx, tableChanges, startIndex, objChanges, doc
 
   // Explicit bind definitions to avoid thin-driver type inference pitfalls on NVARCHAR2/NCLOB/TIMESTAMP
   const bindDefs = [
-    { type: oracledb.DB_TYPE_NVARCHAR, maxSize: 255 },  // tenant NVARCHAR2(255)
-    { type: oracledb.DB_TYPE_NVARCHAR, maxSize: 255 },  // id NVARCHAR2(255)
-    { type: oracledb.DB_TYPE_NUMBER },    // change_id NUMBER
-    { type: oracledb.DB_TYPE_NVARCHAR, maxSize: 255 },  // user_id NVARCHAR2(255)
-    { type: oracledb.DB_TYPE_NVARCHAR, maxSize: 255 },  // user_id_original NVARCHAR2(255)
-    { type: oracledb.DB_TYPE_NVARCHAR, maxSize: 255 },  // user_name NVARCHAR2(255)
+    {type: oracledb.DB_TYPE_NVARCHAR, maxSize: 255}, // tenant NVARCHAR2(255)
+    {type: oracledb.DB_TYPE_NVARCHAR, maxSize: 255}, // id NVARCHAR2(255)
+    {type: oracledb.DB_TYPE_NUMBER}, // change_id NUMBER
+    {type: oracledb.DB_TYPE_NVARCHAR, maxSize: 255}, // user_id NVARCHAR2(255)
+    {type: oracledb.DB_TYPE_NVARCHAR, maxSize: 255}, // user_id_original NVARCHAR2(255)
+    {type: oracledb.DB_TYPE_NVARCHAR, maxSize: 255}, // user_name NVARCHAR2(255)
     // Prefer NVARCHAR2 for small payloads to avoid expensive NCLOB handling; fallback to NCLOB when needed
-    (maxChangeLen <= 2000
-      ? { type: oracledb.DB_TYPE_NVARCHAR, maxSize: Math.max(16, Math.min(maxChangeLen || 16, 2000)) }
-      : { type: oracledb.DB_TYPE_NCLOB }), // change_data
-    { type: oracledb.DB_TYPE_TIMESTAMP }  // change_date TIMESTAMP
+    maxChangeLen <= 2000
+      ? {type: oracledb.DB_TYPE_NVARCHAR, maxSize: Math.max(16, Math.min(maxChangeLen || 16, 2000))}
+      : {type: oracledb.DB_TYPE_NCLOB}, // change_data
+    {type: oracledb.DB_TYPE_TIMESTAMP} // change_date TIMESTAMP
   ];
 
   // With IGNORE_ROW_ON_DUPKEY_INDEX, duplicates are skipped server-side; disable batchErrors to reduce overhead
-  const executeOptions = { bindDefs, batchErrors: false, autoCommit: true };
-  
+  const executeOptions = {bindDefs, batchErrors: false, autoCommit: true};
+
   // Execute current batch and optionally process next chunk concurrently if allowed
   const p1 = executeBunch(ctx, sqlInsert, values, executeOptions);
 
@@ -461,4 +457,4 @@ module.exports = {
   getExpired,
   upsert,
   insertChanges
-}
+};
