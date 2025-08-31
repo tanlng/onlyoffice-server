@@ -69,7 +69,7 @@ delete additionalOptions.thin;
 delete additionalOptions.libDir;
 
 const configuration = Object.assign({}, connectionConfiguration, additionalOptions);
-const forceClosingCountdownMs = 2000;
+const forceClosingCountdownMs = 2; // in SECONDS per node-oracledb API, not milliseconds.
 let pool = null;
 
 oracledb.fetchAsString = [oracledb.NCLOB, oracledb.CLOB];
