@@ -215,7 +215,7 @@ afterAll(async () => {
 
   await Promise.allSettled(deletionPool);
   baseConnector.closePool?.();
-}, 10000);//default timeout is 5000ms. increased to 10000ms to prevent timeout on Oracle DB
+}, 10000); //default timeout is 5000ms. increased to 10000ms to prevent timeout on Oracle DB
 
 // Assumed that at least default DB was installed and configured.
 describe('Base database connector', () => {
