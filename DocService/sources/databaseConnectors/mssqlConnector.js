@@ -201,7 +201,7 @@ function concatParams(...parameters) {
 function getTableColumns(ctx, tableName) {
   const values = [];
   const sqlParam = addSqlParameter(tableName, values);
-  const sqlCommand = `SELECT column_name FROM information_schema.COLUMNS WHERE TABLE_NAME = ${sqlParam} AND TABLE_SCHEMA = 'dbo';`;
+  const sqlCommand = `SELECT column_name FROM information_schema.COLUMNS WHERE TABLE_NAME = ${sqlParam} AND TABLE_SCHEMA = SCHEMA_NAME();`;
   return executeQuery(ctx, sqlCommand, values);
 }
 
