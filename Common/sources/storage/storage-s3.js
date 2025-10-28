@@ -278,7 +278,20 @@ async function getDirectSignedUrl(ctx, storageCfg, baseUrl, strPath, urlType, op
   const options = {
     expiresIn: expires
   };
-  return await getSignedUrl(getS3Client(storageCfg), command, options);
+  
+  // 如果配置了 externalHost，使用 externalHost 作为 endpoint 生成预签名 URL
+  // 这样可以实现：服务器用内网 endpoint 操作 OSS，浏览器用公网 URL 访问 OSS
+  let s3Client;
+  if (storageCfg.externalHost) {
+    // 创建临时配置，使用 externalHost 作为 endpoint
+    const externalStorageCfg = { ...storageCfg, endpoint: storageCfg.externalHost };
+    s3Client = getS3Client(externalStorageCfg);
+  }
+  else { 
+    s3Client = getS3Client(storageCfg)
+  }
+  
+  return await getSignedUrl(s3Client, command, options);
   //extra query params cause SignatureDoesNotMatch
   //https://stackoverflow.com/questions/55503009/amazon-s3-signature-does-not-match-when-extra-query-params-ga-added-in-url
   // return utils.changeOnlyOfficeUrl(url, strPath, optFilename);
