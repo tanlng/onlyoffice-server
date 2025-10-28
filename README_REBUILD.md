@@ -4,6 +4,21 @@
 
 当您修改了 server 的源代码后，需要重新打包并部署到运行环境中。这个脚本可以帮助您快速完成这个过程，**无需重新编译 C++ core 库**。
 
+## ⚠️ 重要提示：版本号管理
+
+在重新打包之前，如果您修改了版本号，请务必先更新源代码中的版本号定义：
+
+**版本号定义位置**：`server/Common/sources/commondefines.js`
+
+```javascript
+const buildVersion = '8.3.0';  // 修改为您的版本号
+const buildNumber = 94;         // 修改为您的构建号
+```
+
+⚠️ **记住：先改版本号，再打包！** 否则打包后的服务仍然是旧版本号。
+
+详细说明请查看：[版本号管理指南](../docs/development/version-management.md)
+
 ## 🚀 快速开始
 
 ### 方法一：使用 Python 脚本（推荐）
