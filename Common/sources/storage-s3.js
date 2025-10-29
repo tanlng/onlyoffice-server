@@ -225,7 +225,7 @@ async function getSignedUrlWrapper(ctx, storageCfg, baseUrl, strPath, urlType, o
   const storageUrlExpires = storageCfg.fs.urlExpires;
   let expires = (commonDefines.c_oAscUrlTypes.Session === urlType ? cfgExpSessionAbsolute / 1000 : storageUrlExpires) || 31536000;
   // Signature version 4 presigned URLs must have an expiration date less than one week in the future
-  expires = Math.min(expires, 604800);
+  expires = Math.min(expires, 604800 - 1);
     let userFriendlyName = optFilename ? optFilename.replace(/\//g, "%2f") : path.basename(strPath);
     let contentDisposition = utils.getContentDisposition(userFriendlyName, null, null);
 
